@@ -1,3 +1,4 @@
+import datetime
 import os
 import httpx
 import json
@@ -14,7 +15,9 @@ AUTH_USERNAME = os.getenv("AUTH_USERNAME")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
 
 if not AUTH_USERNAME or not AUTH_PASSWORD:
-    raise ValueError("AUTH_USERNAME and AUTH_PASSWORD environment variables must be set")
+    raise ValueError(
+        "AUTH_USERNAME and AUTH_PASSWORD environment variables must be set"
+    )
 
 # API endpoint
 API_URL = "http://distribution.virk.dk/cvr-permanent/virksomhed/_search"
@@ -23,12 +26,15 @@ API_URL = "http://distribution.virk.dk/cvr-permanent/virksomhed/_search"
 http_client = httpx.Client(
     timeout=30.0,  # Increased timeout for better reliability
     auth=(AUTH_USERNAME, AUTH_PASSWORD),
-    headers={"Content-Type": "application/json"}
+    headers={"Content-Type": "application/json"},
 )
+
 
 class CVRAPIError(Exception):
     """Custom exception for CVR API errors"""
+
     pass
+
 
 def handle_api_response(response: httpx.Response) -> dict:
     """Handle API response and raise appropriate exceptions"""
@@ -44,24 +50,29 @@ def handle_api_response(response: httpx.Response) -> dict:
     except json.JSONDecodeError as e:
         raise CVRAPIError(f"Invalid JSON response: {str(e)}")
 
+
 def search_cvr_api(cvr_number: int) -> dict:
     """Look up company information based on CVR number."""
     payload = {
         "_source": ["Vrvirksomhed"],
         "query": {"term": {"Vrvirksomhed.cvrNummer": cvr_number}},
     }
-    
+
     try:
         response = http_client.post(API_URL, json=payload)
         json_response = handle_api_response(response)
 
         if json_response["hits"]["total"] == 0:
             return {"error": "NOT_FOUND"}
-        
+
+        # print the response to file
+        with open("response.json", "w") as f:
+            json.dump(json_response, f)
         company = json_response["hits"]["hits"][0]["_source"]["Vrvirksomhed"]
         return format_company_data(company, cvr_number)
     except CVRAPIError as e:
         return {"error": str(e)}
+
 
 def search_cvr_by_name(company_name: str) -> List[Dict]:
     """Search for companies matching the provided name."""
@@ -88,6 +99,7 @@ def search_cvr_by_name(company_name: str) -> List[Dict]:
         return companies
     except CVRAPIError as e:
         return [{"error": str(e)}]
+
 
 def search_cvr_by_fuzzy_name(company_name: str) -> List[Dict]:
     """Return companies matching the name using fuzzy search."""
@@ -127,13 +139,12 @@ def search_cvr_by_fuzzy_name(company_name: str) -> List[Dict]:
     except CVRAPIError as e:
         return [{"error": str(e)}]
 
+
 def search_cvr_by_email(email: str) -> List[Dict]:
     """Find companies registered with the given email address."""
     payload = {
         "_source": ["*"],
-        "query": {
-            "match": {"Vrvirksomhed.elektroniskPost.kontaktoplysning": email}
-        },
+        "query": {"match": {"Vrvirksomhed.elektroniskPost.kontaktoplysning": email}},
         "size": 100,
     }
 
@@ -150,15 +161,14 @@ def search_cvr_by_email(email: str) -> List[Dict]:
         return companies
     except CVRAPIError as e:
         return [{"error": str(e)}]
+
 
 def search_cvr_by_email_domain(email_domain: str) -> List[Dict]:
     """Search for companies by matching email domain."""
     email = "@" + email_domain
     payload = {
         "_source": ["*"],
-        "query": {
-            "match": {"Vrvirksomhed.elektroniskPost.kontaktoplysning": email}
-        },
+        "query": {"match": {"Vrvirksomhed.elektroniskPost.kontaktoplysning": email}},
         "size": 100,
     }
 
@@ -175,6 +185,7 @@ def search_cvr_by_email_domain(email_domain: str) -> List[Dict]:
         return companies
     except CVRAPIError as e:
         return [{"error": str(e)}]
+
 
 def search_cvr_by_phone(phone_number: str) -> List[Dict]:
     """Locate companies by phone number."""
@@ -199,6 +210,7 @@ def search_cvr_by_phone(phone_number: str) -> List[Dict]:
         return companies
     except CVRAPIError as e:
         return [{"error": str(e)}]
+
 
 # Format company data
 def format_company_data(company: dict, cvr_number: str) -> dict:
@@ -236,6 +248,7 @@ def format_company_data(company: dict, cvr_number: str) -> dict:
         "companydesc": company["virksomhedMetadata"]["nyesteVirksomhedsform"][
             "langBeskrivelse"
         ],
+        "owners": get_owners(company),
         "bankrupt": is_bankrupt(company),
         "status": company["virksomhedMetadata"]["sammensatStatus"],
         "companytypeshort": company["virksomhedMetadata"]["nyesteVirksomhedsform"][
@@ -246,9 +259,36 @@ def format_company_data(company: dict, cvr_number: str) -> dict:
     }
     return company_data
 
+
+def get_owners(company):
+    deltagerRelation = company["deltagerRelation"]
+    owners = []
+    for deltager in deltagerRelation:
+        for oranisation in deltager["organisationer"]:
+            for attribut in oranisation["attributter"]:
+                for vaerdi in attribut["vaerdier"]:
+                    value = vaerdi["vaerdi"]
+                    if (
+                        value == "Reelle ejere"
+                        or value == "Reel ejer"
+                        or value == "Direktion"
+                        or value == "Direktør"
+                        or value == "Stiftere"
+                    ):
+                        owners = [
+                            owner["navn"]
+                            for deltager in deltagerRelation
+                            for owner in deltager["deltager"]["navne"]
+                        ]
+                        ## remove extra whitespace from each owner
+                        owners = [" ".join(owner.split()) for owner in owners]
+    return owners
+
+
 # Get company name
 def get_company_name(company):
     return company["virksomhedMetadata"]["nyesteNavn"]["navn"]
+
 
 # Get combined address
 def get_combined_address(company):
@@ -267,10 +307,12 @@ def get_combined_address(company):
 
     return combined_address
 
+
 # Get specific field from address
 def get_address_field(company, field):
     address = company["virksomhedMetadata"]["nyesteBeliggenhedsadresse"]
     return address.get(field)
+
 
 # Get formatted date
 def get_formatted_date(date):
@@ -279,17 +321,20 @@ def get_formatted_date(date):
     parts = date.split("-")
     return f"{parts[2]}/{parts[1]} - {parts[0]}"
 
+
 # Get phone number
 def get_phone_number(company):
     contact_info = company["virksomhedMetadata"]["nyesteKontaktoplysninger"]
     phone = re.findall(r"\b\d{8}\b", str(contact_info))
     return phone[0] if phone else None
 
+
 # Get email
 def get_email(company):
     contact_info = company["virksomhedMetadata"]["nyesteKontaktoplysninger"]
     email = re.findall(r"\b[\w.-]+@[\w.-]+\b", str(contact_info))
     return email[0] if email else None
+
 
 # Get website
 def get_website(company):
@@ -300,6 +345,7 @@ def get_website(company):
     )
     return website[0] if website else None
 
+
 # Get number of employees
 def get_employees(company):
     metadata = company.get("virksomhedMetadata", {})
@@ -307,6 +353,7 @@ def get_employees(company):
     if erst_maaned_beskaeftigelse:
         return erst_maaned_beskaeftigelse.get("antalAnsatte")
     return None
+
 
 # Check if the company is bankrupt
 def is_bankrupt(company):

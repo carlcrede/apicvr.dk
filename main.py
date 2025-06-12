@@ -5,6 +5,25 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
 from app.modules.kapitalsog import show_capital_result
+import logging
+from fastapi import HTTPException, Security
+from fastapi.security import APIKeyHeader
+from starlette.status import HTTP_403_FORBIDDEN
+import os
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
+
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    if api_key_header == os.getenv("API_KEY"):
+        return api_key_header
+    else:
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Could not validate API KEY"
+        )
 
 app = FastAPI(
     title="APICVR.dk",
@@ -19,6 +38,7 @@ app = FastAPI(
         "name": "MIT License",
         "url": "https://raw.githubusercontent.com/NoahBohme/apicvr.dk/master/LICENSE",
     },
+    dependencies=[Security(get_api_key)],
 )
 
 templates = Jinja2Templates(directory="frontend/templates")
