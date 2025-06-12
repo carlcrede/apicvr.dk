@@ -5,3 +5,6 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 3450
     ports:
       - "3450:3450"
+    environment:
+      - AUTH_USERNAME=${AUTH_USERNAME}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}

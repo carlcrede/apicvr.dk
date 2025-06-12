@@ -23,18 +23,27 @@ app = FastAPI(
 
 templates = Jinja2Templates(directory="frontend/templates")
 
+origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+    "http://localhost",
+    "https://handyhand.dk",
+    "https://dev.handyhand.dk",
+]
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 async def home(request: Request):
     return templates.TemplateResponse("/homepage.html", {"request": request})
+
 
 @app.get("/da/search/")
 async def search_da(request: Request):
@@ -43,36 +52,44 @@ async def search_da(request: Request):
 
 @app.get("/da/virksomhed/{cvrNumber}")
 async def company_frontned(request: Request, cvrNumber: str):
-    return templates.TemplateResponse("/virksomhed.html", {"request": request, "cvrNumber": cvrNumber, "info": search_cvr_api(cvrNumber)})
+    return templates.TemplateResponse(
+        "/virksomhed.html",
+        {"request": request, "cvrNumber": cvrNumber, "info": search_cvr_api(cvrNumber)},
+    )
 
 
 @app.get("/api/v1/{cvrNumber}")
 def read_root(cvrNumber: int):
     return search_cvr_api(cvrNumber)
 
+
 @app.get("/api/v1/search/company/{companyName}")
 def search_company(companyName: str):
     return search_cvr_by_name(companyName)
+
 
 @app.get("/api/v1/fuzzy_search/company/{companyName}")
 def search_company_fuzzy(companyName: str):
     return search_cvr_by_fuzzy_name(companyName)
 
+
 @app.get("/api/v1/email/{email}")
 def search_email(email: str):
     return search_cvr_by_email(email)
 
+
 @app.get("/api/v1/email_domain/{domain}")
 def search_email_domain(domain: str):
     return search_cvr_by_email_domain(domain)
+
 
 @app.get("/api/v1/phone/{phone}")
 def search_phone(phone: str):
     return search_cvr_by_phone(phone)
 
 
-
 # Search in registeringshistorik after capital raise
+
 
 @app.get("/da/kapitalsog/")
 async def search_da(request: Request):
@@ -81,4 +98,7 @@ async def search_da(request: Request):
 
 @app.get("/da/kapitalindsigt/{cvrNumber}")
 async def company_frontned(request: Request, cvrNumber: str):
-    return templates.TemplateResponse("/kapitalresultat.html", {"request": request, "data": show_capital_result(cvrNumber)})
+    return templates.TemplateResponse(
+        "/kapitalresultat.html",
+        {"request": request, "data": show_capital_result(cvrNumber)},
+    )
