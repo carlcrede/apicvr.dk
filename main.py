@@ -2,10 +2,11 @@ import logging
 import os
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from app.modules.kapitalsog import show_capital_result
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
+from fastapi_throttle import RateLimiter
 from starlette.status import HTTP_403_FORBIDDEN
 from apis.searchcvr import *
 
@@ -37,7 +38,7 @@ app = FastAPI(
         "name": "MIT License",
         "url": "https://raw.githubusercontent.com/NoahBohme/apicvr.dk/master/LICENSE",
     },
-    dependencies=[Security(get_api_key)],
+    dependencies=[Security(get_api_key), Depends(RateLimiter(times=100, seconds=60))],
 )
 
 templates = Jinja2Templates(directory="frontend/templates")
