@@ -24,7 +24,7 @@ API_URL = "http://distribution.virk.dk/cvr-permanent/virksomhed/_search"
 
 # Create a reusable HTTP client with proper configuration
 http_client = httpx.Client(
-    timeout=30.0,  # Increased timeout for better reliability
+    timeout=30.0,
     auth=(AUTH_USERNAME, AUTH_PASSWORD),
     headers={"Content-Type": "application/json"},
 )
@@ -65,9 +65,6 @@ def search_cvr_api(cvr_number: int) -> dict:
         if json_response["hits"]["total"] == 0:
             return {"error": "NOT_FOUND"}
 
-        # print the response to file
-        with open("response.json", "w") as f:
-            json.dump(json_response, f)
         company = json_response["hits"]["hits"][0]["_source"]["Vrvirksomhed"]
         return format_company_data(company, cvr_number)
     except CVRAPIError as e:
@@ -260,20 +257,6 @@ def format_company_data(company: dict, cvr_number: str) -> dict:
     return company_data
 
 
-def is_single_owner(company):
-    companyType = company["virksomhedMetadata"]["nyesteVirksomhedsform"][
-        "kortBeskrivelse"
-    ]
-    return companyType.lower() in ["enk", "pmv"]
-
-
-def is_multiple_owners(company):
-    companyType = company["virksomhedMetadata"]["nyesteVirksomhedsform"][
-        "kortBeskrivelse"
-    ]
-    return companyType.lower() in ["aps", "efo", "a/s", "i/s"]
-
-
 def get_owners(company):
     owners = []
     try:
@@ -284,7 +267,6 @@ def get_owners(company):
                     owners.append({"navn": " ".join(navn["navn"].split())})
         return owners
     except Exception as e:
-        print(e)
         return []
 
 

@@ -1,15 +1,13 @@
-from apis.searchcvr import *
-from typing import Union
-from fastapi.responses import HTMLResponse
+import logging
+import os
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
 from app.modules.kapitalsog import show_capital_result
-import logging
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
 from starlette.status import HTTP_403_FORBIDDEN
-import os
+from apis.searchcvr import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +22,7 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Could not validate API KEY"
         )
+
 
 app = FastAPI(
     title="APICVR.dk",
