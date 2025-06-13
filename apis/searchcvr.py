@@ -260,29 +260,32 @@ def format_company_data(company: dict, cvr_number: str) -> dict:
     return company_data
 
 
+def is_single_owner(company):
+    companyType = company["virksomhedMetadata"]["nyesteVirksomhedsform"][
+        "kortBeskrivelse"
+    ]
+    return companyType.lower() in ["enk", "pmv"]
+
+
+def is_multiple_owners(company):
+    companyType = company["virksomhedMetadata"]["nyesteVirksomhedsform"][
+        "kortBeskrivelse"
+    ]
+    return companyType.lower() in ["aps", "efo", "a/s", "i/s"]
+
+
 def get_owners(company):
-    deltagerRelation = company["deltagerRelation"]
     owners = []
-    for deltager in deltagerRelation:
-        for oranisation in deltager["organisationer"]:
-            for attribut in oranisation["attributter"]:
-                for vaerdi in attribut["vaerdier"]:
-                    value = vaerdi["vaerdi"]
-                    if (
-                        value == "Reelle ejere"
-                        or value == "Reel ejer"
-                        or value == "Direktion"
-                        or value == "Direktør"
-                        or value == "Stiftere"
-                    ):
-                        owners = [
-                            owner["navn"]
-                            for deltager in deltagerRelation
-                            for owner in deltager["deltager"]["navne"]
-                        ]
-                        ## remove extra whitespace from each owner
-                        owners = [" ".join(owner.split()) for owner in owners]
-    return owners
+    try:
+        for relation in company.get("deltagerRelation", []):
+            deltager = relation.get("deltager")
+            if deltager and deltager.get("enhedstype") == "PERSON":
+                for navn in deltager.get("navne", []):
+                    owners.append({"navn": " ".join(navn["navn"].split())})
+        return owners
+    except Exception as e:
+        print(e)
+        return []
 
 
 # Get company name
